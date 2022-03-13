@@ -5,11 +5,12 @@ Defines a functions for training a NN.
 from data_generator import AudioGenerator
 import _pickle as pickle
 
+from tensorflow import keras
 from keras import backend as K
 from keras.models import Model
 from keras.layers import (Input, Lambda)
-from keras.optimizers import SGD
-from keras.callbacks import ModelCheckpoint   
+from tensorflow.keras.optimizers import SGD
+from keras.callbacks import ModelCheckpoint
 import os
 
 def ctc_lambda_func(args):
