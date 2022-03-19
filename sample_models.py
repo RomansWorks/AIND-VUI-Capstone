@@ -61,7 +61,7 @@ def cnn_rnn_model(input_dim, filters, kernel_size, conv_stride,
     return model
 
 
-def model5(input_dim, filters, kernel_size,
+def dilated_double_cnn_rnn_model(input_dim, filters, kernel_size,
     conv_border_mode, units, dilation, output_dim=29):
     """ Build a recurrent + convolutional network for speech 
     """
@@ -72,24 +72,28 @@ def model5(input_dim, filters, kernel_size,
                      activation='tanh',
                      dilation_rate=dilation,
                      name='conv_1d_1')(input_data)
-    conv_1d_mp_1 = MaxPooling1D(pool_size=4, name='conv_1d_1_mp')(conv_1d_1)
+    
+    second_kernel_size = round(kernel_size * 2)
+    second_filter_count = round(filters / 2)
 
-    conv_1d_2 = Conv1D(round(filters / 2), round(kernel_size / 2), 
+    conv_1d_2 = Conv1D(second_filter_count, second_kernel_size, 
                      padding=conv_border_mode,
                      activation='tanh',
                      dilation_rate=dilation,
-                     name='conv_1d_2')(conv_1d_mp_1)
-    conv_1d_mp_2 = MaxPooling1D(pool_size=4, name='conv_1d_2_mp')(conv_1d_2)
+                     name='conv_1d_2')(conv_1d_1)
 
     rnn = GRU(units, activation='tanh',
-        return_sequences=True, implementation=2, name='rnn')(conv_1d_mp_2)
+        return_sequences=True, implementation=2, name='rnn')(conv_1d_2)
+
     bn_rnn = BatchNormalization()(rnn)   
     time_dense = TimeDistributed(Dense(output_dim))(bn_rnn)
     y_pred = Activation('softmax', name='softmax')(time_dense)
 
     model = Model(inputs=input_data, outputs=y_pred)
     model.output_length = lambda x: cnn_output_length(
-        x, kernel_size, conv_border_mode, 1, dilation=dilation)
+      cnn_output_length(x, kernel_size, conv_border_mode, 1, dilation=dilation),
+      second_kernel_size, conv_border_mode, 1, dilation)
+
     print(model.summary())
     return model
 
