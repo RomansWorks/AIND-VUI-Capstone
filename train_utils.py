@@ -13,6 +13,9 @@ from tensorflow.keras.optimizers import SGD
 from keras.callbacks import ModelCheckpoint
 import os
 
+from workspace_utils import active_session
+
+
 def ctc_lambda_func(args):
     y_pred, labels, input_length, label_length = args
     return K.ctc_batch_cost(labels, y_pred, input_length, label_length)
@@ -43,39 +46,41 @@ def train_model(input_to_softmax,
                 verbose=1,
                 sort_by_duration=False,
                 max_duration=10.0):
+
+    with active_session():
     
-    # create a class instance for obtaining batches of data
-    audio_gen = AudioGenerator(minibatch_size=minibatch_size, 
-        spectrogram=spectrogram, mfcc_dim=mfcc_dim, max_duration=max_duration,
-        sort_by_duration=sort_by_duration)
-    # add the training data to the generator
-    audio_gen.load_train_data(train_json)
-    audio_gen.load_validation_data(valid_json)
-    # calculate steps_per_epoch
-    num_train_examples=len(audio_gen.train_audio_paths)
-    steps_per_epoch = num_train_examples//minibatch_size
-    # calculate validation_steps
-    num_valid_samples = len(audio_gen.valid_audio_paths) 
-    validation_steps = num_valid_samples//minibatch_size
-    
-    # add CTC loss to the NN specified in input_to_softmax
-    model = add_ctc_loss(input_to_softmax)
+	# create a class instance for obtaining batches of data
+	audio_gen = AudioGenerator(minibatch_size=minibatch_size, 
+	    spectrogram=spectrogram, mfcc_dim=mfcc_dim, max_duration=max_duration,
+	    sort_by_duration=sort_by_duration)
+	# add the training data to the generator
+	audio_gen.load_train_data(train_json)
+	audio_gen.load_validation_data(valid_json)
+	# calculate steps_per_epoch
+	num_train_examples=len(audio_gen.train_audio_paths)
+	steps_per_epoch = num_train_examples//minibatch_size
+	# calculate validation_steps
+	num_valid_samples = len(audio_gen.valid_audio_paths) 
+	validation_steps = num_valid_samples//minibatch_size
+	
+	# add CTC loss to the NN specified in input_to_softmax
+	model = add_ctc_loss(input_to_softmax)
 
-    # CTC loss is implemented elsewhere, so use a dummy lambda function for the loss
-    model.compile(loss={'ctc': lambda y_true, y_pred: y_pred}, optimizer=optimizer)
+	# CTC loss is implemented elsewhere, so use a dummy lambda function for the loss
+	model.compile(loss={'ctc': lambda y_true, y_pred: y_pred}, optimizer=optimizer)
 
-    # make results/ directory, if necessary
-    if not os.path.exists('results'):
-        os.makedirs('results')
+	# make results/ directory, if necessary
+	if not os.path.exists('results'):
+	    os.makedirs('results')
 
-    # add checkpointer
-    checkpointer = ModelCheckpoint(filepath='results/'+save_model_path, verbose=0)
+	# add checkpointer
+	checkpointer = ModelCheckpoint(filepath='results/'+save_model_path, verbose=0)
 
-    # train the model
-    hist = model.fit_generator(generator=audio_gen.next_train(), steps_per_epoch=steps_per_epoch,
-        epochs=epochs, validation_data=audio_gen.next_valid(), validation_steps=validation_steps,
-        callbacks=[checkpointer], verbose=verbose)
+	# train the model
+	hist = model.fit_generator(generator=audio_gen.next_train(), steps_per_epoch=steps_per_epoch,
+	    epochs=epochs, validation_data=audio_gen.next_valid(), validation_steps=validation_steps,
+	    callbacks=[checkpointer], verbose=verbose)
 
-    # save model loss
-    with open('results/'+pickle_path, 'wb') as f:
-        pickle.dump(hist.history, f)
+	# save model loss
+	with open('results/'+pickle_path, 'wb') as f:
+	    pickle.dump(hist.history, f)
