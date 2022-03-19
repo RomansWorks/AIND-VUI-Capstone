@@ -2,7 +2,8 @@ from sys import implementation
 from keras import backend as K
 from keras.models import Model
 from keras.layers import (BatchNormalization, Conv1D, Dense, Input, 
-    TimeDistributed, Activation, Bidirectional, GRU, LSTM)
+    TimeDistributed, Activation, Bidirectional, GRU, LSTM, 
+    MaxPooling1d, Dropout, BatchNormalization)
 
 def simple_rnn_model(input_dim, output_dim=29):
     """ Build a recurrent network for speech 
@@ -58,6 +59,41 @@ def cnn_rnn_model(input_dim, filters, kernel_size, conv_stride,
         x, kernel_size, conv_border_mode, conv_stride)
     print(model.summary())
     return model
+
+def dilated_cnn_rnn_model(input_dim, filters, kernel_size,
+    conv_border_mode, units, dilation, output_dim=29):
+    """ Build a recurrent + convolutional network for speech 
+    """
+    input_data = Input(name='the_input', shape=(None, input_dim))
+
+    conv_1d_1 = Conv1D(filters, kernel_size, 
+                     padding=conv_border_mode,
+                     activation='tanh',
+                     dilation=dilation,
+                     name='conv_1d_1')(input_data)
+    conv_1d_mp_1 = MaxPooling1d(pool_size=4, name='conv_1d_1_mp')(conv_1d_1)
+
+    conv_1d_2 = Conv1D(filters / 2, kernel_size / 2, 
+                     padding=conv_border_mode,
+                     activation='tanh',
+                     dilation=dilation,
+                     name='conv_1d_2')(conv_1d_mp_1)
+
+    conv_1d_mp_2 = MaxPooling1d(pool_size=4, name='conv_1d_2_mp')(conv_1d_2)
+
+    rnn = GRU(units, activation='tanh',
+        return_sequences=True, implementation=2, name='rnn')(bn_cnn)
+    bn_rnn = BatchNormalization()(rnn)   
+    time_dense = TimeDistributed(Dense(output_dim))(bn_rnn)
+    y_pred = Activation('softmax', name='softmax')(time_dense)
+
+    model = Model(inputs=input_data, outputs=y_pred)
+    model.output_length = lambda x: cnn_output_length(
+        x, kernel_size, conv_border_mode, conv_stride, dilation=dilation)
+    print(model.summary())
+    return model
+
+
 
 def cnn_output_length(input_length, filter_size, border_mode, stride,
                        dilation=1):
