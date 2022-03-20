@@ -174,7 +174,13 @@ def final_model():
                      activation='tanh',
                      name='conv1d')(input_data)
     bn_conv = BatchNormalization()(conv_1d)
-    bd_rnn = Bidirectional(GRU(units, return_sequences=True, implementation=2), name="bidi")(bn_conv)
+    bd_rnn = Bidirectional(
+      GRU(
+        units, 
+        return_sequences=True, 
+        implementation=2,
+        dropout=0.1,
+        recurrent_dropout=0.1), name="bidi")(bn_conv)
     bn_bd_rnn = BatchNormalization()(bd_rnn)  
     time_dense = TimeDistributed(Dense(output_dim))(bn_bd_rnn)    
     dropout = Dropout(0.1)(time_dense)
