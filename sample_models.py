@@ -4,6 +4,8 @@ from keras.models import Model
 from keras.layers import (BatchNormalization, Conv1D, Dense, Input, 
     TimeDistributed, Activation, Bidirectional, GRU, LSTM, 
     MaxPooling1D, Dropout, BatchNormalization)
+from keras import regularizers
+
 
 def simple_rnn_model(input_dim, output_dim=29):
     """ Build a recurrent network for speech 
@@ -71,6 +73,7 @@ def dilated_double_cnn_rnn_model(input_dim, filters, kernel_size,
                      padding=conv_border_mode,
                      activation='tanh',
                      dilation_rate=dilation,
+                     kernel_regularizer=regularizers.l2(0.001),
                      name='conv_1d_1')(input_data)
     
     second_kernel_size = round(kernel_size * 2)
@@ -80,10 +83,15 @@ def dilated_double_cnn_rnn_model(input_dim, filters, kernel_size,
                      padding=conv_border_mode,
                      activation='tanh',
                      dilation_rate=dilation,
+                     kernel_regularizer=regularizers.l2(0.001),
                      name='conv_1d_2')(conv_1d_1)
 
-    rnn = GRU(units, activation='tanh',
-        return_sequences=True, implementation=2, name='rnn')(conv_1d_2)
+    rnn = GRU(
+      units, 
+      activation='tanh',
+      return_sequences=True, 
+      kernel_regularizer=regularizers.l2(0.001),
+      implementation=2, name='rnn')(conv_1d_2)
 
     bn_rnn = BatchNormalization()(rnn)   
     time_dense = TimeDistributed(Dense(output_dim))(bn_rnn)
@@ -174,13 +182,7 @@ def final_model():
                      activation='tanh',
                      name='conv1d')(input_data)
     bn_conv = BatchNormalization()(conv_1d)
-    bd_rnn = Bidirectional(
-      GRU(
-        units, 
-        return_sequences=True, 
-        implementation=2,
-        dropout=0.1,
-        recurrent_dropout=0.1), name="bidi")(bn_conv)
+    bd_rnn = Bidirectional(GRU(units, return_sequences=True, implementation=2), name="bidi")(bn_conv)
     bn_bd_rnn = BatchNormalization()(bd_rnn)  
     time_dense = TimeDistributed(Dense(output_dim))(bn_bd_rnn)    
     dropout = Dropout(0.1)(time_dense)
